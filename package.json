@@ -1,6 +1,6 @@
 {
-  "name": "@daveyplate/my-tsx-package",
-  "homepage": "https://github.com/daveyplate/my-tsx-package",
+  "name": "@daveyplate/better-auth-react",
+  "homepage": "https://github.com/daveyplate/better-auth-react",
   "version": "1.0.0",
   "description": "My TSX Package",
   "module": "dist/index",
@@ -26,15 +26,30 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-plugin-react": "^7.37.2",
+    "react": "file:../new-tech/node_modules/react",
+    "react-dom": "file:../new-tech/node_modules/react-dom",
+    "better-auth": "file:../new-tech/node_modules/better-auth",
+    "tailwindcss-animate": "^1.0.7",
     "tsc-watch": "^6.2.1",
     "tsx": "^4.19.2",
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.17.0",
-    "react": "file:../new-tech/node_modules/react",
-    "react-dom": "file:../new-tech/node_modules/react-dom"
+    "class-variance-authority": ">=0.7.0",
+    "clsx": ">=2.1.0",
+    "lucide-react": ">=0.469.0",
+    "tailwind-merge": ">=2.6.0",
+    "@radix-ui/react-label": ">=2.1.0",
+    "@radix-ui/react-slot": ">=1.1.0"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "@radix-ui/react-label": ">=2.1.0",
+    "@radix-ui/react-slot": ">=1.1.0",
+    "better-auth": ">=1.1.4",
+    "class-variance-authority": ">=0.7.0",
+    "clsx": ">=2.1.0",
+    "lucide-react": ">=0.469.0",
+    "tailwind-merge": ">=2.6.0"
   }
 }
