@@ -214,7 +214,7 @@ export function AuthCard({
                                 href="/forgot-password"
                                 className={cn(view === "login" && !isMagicLink && !isPending ? "h-6" : hideElementClass,
                                     !disableAnimation && transitionClass,
-                                    "absolute right-0 text-sm hover:underline z-10"
+                                    "absolute mt-1 right-0 text-sm hover:underline z-10"
                                 )}
                                 tabIndex={isMagicLink ? -1 : undefined}
                             >
