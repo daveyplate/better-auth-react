@@ -1,3 +1,10 @@
+import { FormEvent, ReactNode, useEffect, useState } from "react"
+import { NextRouter } from "next/router"
+import { createAuthClient } from "better-auth/react"
+
+import { cn } from "@/lib/utils"
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
     Card,
@@ -9,17 +16,13 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { FormEvent, ReactNode, useEffect, useState } from "react"
+
 import { AlertCircle, Loader2, LockIcon, MailIcon } from "lucide-react"
-import {
-    createAuthClient
-} from "better-auth/react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { cn } from "@/lib/utils"
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
-export type AuthView = "login" | "signup" | "forgot-password" | "reset-password" | "logout"
+export const authViews = ["login", "signup", "forgot-password", "reset-password", "logout"] as const
+export type AuthView = typeof authViews[number]
 
 const DefaultLink = (
     { href, className, children }: { href: string, className?: string, children: ReactNode }
@@ -28,6 +31,8 @@ const DefaultLink = (
         {children}
     </a>
 )
+
+const defaultNavigate = (href: string) => window.location.href = href
 
 export const defaultLocalization = {
     login_title: "Login",
@@ -57,53 +62,77 @@ export const defaultLocalization = {
     email_confirmation_text: "Check your email for the confirmation link",
     email_reset_password_text: "Check your email for the password reset link",
     email_magic_link_text: "Check your email for the magic link",
+    error: "Error",
+    alert: "Alert"
+}
+
+type AuthToastOptions = {
+    description: string
+    variant: "default" | "destructive"
+    action?: {
+        label: string
+        onClick: () => void
+    }
 }
 
 export interface AuthCardProps {
     authClient: AuthClient,
     navigate?: (url: string) => void
     pathname?: string
+    nextRouter?: NextRouter
     initialView?: AuthView
     emailPassword?: boolean
     magicLink?: boolean
     startWithMagicLink?: boolean
     localization?: Partial<typeof defaultLocalization>
     disableRouting?: boolean
+    disableAnimation?: boolean
+    toast?: (options: AuthToastOptions) => void
     LinkComponent?: React.ComponentType<{ href: string, className?: string, children: ReactNode }>
 }
 
+const hideElementClass = "opacity-0 scale-y-0 h-0 overflow-hidden"
+const transitionClass = "transition-all"
+
 export function AuthCard({
     authClient,
-    navigate = (url) => window.location.href = url,
+    navigate,
     pathname,
+    nextRouter,
     initialView = "login",
     emailPassword = true,
     magicLink,
     startWithMagicLink,
     localization,
     disableRouting,
+    disableAnimation,
+    toast,
     LinkComponent = DefaultLink
 }: AuthCardProps) {
     localization = { ...defaultLocalization, ...localization }
+    navigate = navigate || nextRouter?.push || defaultNavigate
+    pathname = pathname || nextRouter?.asPath
     const { data: sessionData, isPending } = authClient.useSession()
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [loading, setLoading] = useState(false)
     const [view, setView] = useState(initialView)
     const [isMagicLink, setIsMagicLink] = useState(startWithMagicLink || !emailPassword)
-    const [alertMessage, setAlertMessage] = useState<string | null | undefined>()
-    const [errorMessage, setErrorMessage] = useState<string | null | undefined>()
+    const [authToast, setAuthToast] = useState<AuthToastOptions | null>(null)
 
     const onSubmit = async (e: FormEvent) => {
         e?.preventDefault()
 
-        setErrorMessage(null)
+        setAuthToast(null)
         setLoading(true)
         const { error } = await authClient.signIn.email({ email, password })
         setLoading(false)
 
-        if (error) {
-            setErrorMessage(error.message)
+        if (error?.message) {
+            setAuthToast({
+                description: error.message,
+                variant: "destructive"
+            })
         }
     }
 
@@ -117,7 +146,7 @@ export function AuthCard({
         if (!pathname) return
         const path = pathname.split("/").pop()
 
-        if (["login", "signup", "forgot-password", "reset-password", "logout"].includes(path as AuthView)) {
+        if (authViews.includes(path as AuthView)) {
             setView(path as AuthView)
         }
     }, [pathname])
@@ -128,10 +157,17 @@ export function AuthCard({
         }
     }, [view])
 
+    useEffect(() => {
+        if (!authToast || !toast) return
+
+        toast(authToast)
+    }, [authToast])
+
     return (
         <Card
-            className={cn(isPending ? "opacity-0" : null,
-                "max-w-md w-full transition-all"
+            className={cn(((nextRouter && !nextRouter.isReady) || isPending) && "opacity-0",
+                !disableAnimation && transitionClass,
+                "max-w-md w-full"
             )}
         >
             <CardHeader>
@@ -164,8 +200,9 @@ export function AuthCard({
                     </div>
 
                     <div
-                        className={cn(isMagicLink ? "h-0 opacity-0 overflow-hidden" : "mb-4 h-[62px]",
-                            "grid gap-2 transition-all"
+                        className={cn(isMagicLink ? hideElementClass : "mb-4 h-[62px]",
+                            !disableAnimation && transitionClass,
+                            "grid gap-2"
                         )}
                     >
                         <div className="flex items-center relative">
@@ -175,9 +212,11 @@ export function AuthCard({
 
                             <a
                                 href="/forgot-password"
-                                className={cn(view === "login" && !isMagicLink && !isPending ? "h-6" : "h-0 opacity-0 overflow-hidden",
-                                    "absolute right-0 text-sm hover:underline transition-all z-10"
+                                className={cn(view === "login" && !isMagicLink && !isPending ? "h-6" : hideElementClass,
+                                    !disableAnimation && transitionClass,
+                                    "absolute right-0 text-sm hover:underline z-10"
                                 )}
+                                tabIndex={isMagicLink ? -1 : undefined}
                             >
                                 {localization.forgot_password}
                             </a>
@@ -194,39 +233,7 @@ export function AuthCard({
                         />
                     </div>
 
-                    <div
-                        className={cn(!errorMessage ? "scale-y-0 h-0" : "mb-4",
-                            "overflow-hidden transition-all"
-                        )}
-                    >
-                        <Alert
-                            variant="destructive"
-                            className="bg-destructive/10"
-                        >
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="absolute top-5 right-4 text-foreground"
-                                disabled
-                            >
-                                Resend
-                            </Button>
-
-                            <AlertCircle className="h-4 w-4" />
-
-                            <AlertTitle>
-                                Error
-                            </AlertTitle>
-
-                            <AlertDescription>
-                                {errorMessage}
-                                asdf
-                            </AlertDescription>
-                        </Alert>
-                    </div>
-
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col">
                         <Button
                             type="submit"
                             className="w-full"
@@ -239,33 +246,78 @@ export function AuthCard({
                             )}
                         </Button>
 
-                        {magicLink && !isMagicLink && (
+                        {!toast && (
+                            <div
+                                className={cn(!authToast ? hideElementClass : "mt-4",
+                                    !disableAnimation && transitionClass,
+                                )}
+                            >
+                                <Alert
+                                    variant={authToast?.variant}
+                                    className={authToast?.variant == "destructive" ? "bg-destructive/10" : "bg-foreground/5"}
+                                >
+                                    {authToast?.action && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="absolute top-5 right-4 text-foreground"
+                                            onClick={authToast?.action.onClick}
+                                        >
+                                            authToast?.action.label
+                                        </Button>
+                                    )}
+
+                                    <AlertCircle className="h-4 w-4" />
+
+                                    <AlertTitle>
+                                        {authToast?.variant == "destructive" ? localization.error : localization.alert}
+                                    </AlertTitle>
+
+                                    <AlertDescription>
+                                        {authToast?.description}
+                                    </AlertDescription>
+                                </Alert>
+                            </div>
+                        )}
+
+                        <div
+                            className={cn((view != "login" || !magicLink || isMagicLink) ? hideElementClass : "mt-4",
+                                !disableAnimation && transitionClass,
+                            )}
+                        >
                             <Button
                                 type="button"
                                 variant="secondary"
                                 className="gap-2 w-full"
                                 onClick={() => setIsMagicLink(true)}
+                                disabled={view != "login" || !magicLink || isMagicLink}
                             >
                                 <MailIcon className="w-4 h-4" />
                                 {localization.provider_prefix}
                                 {" "}
                                 {localization.magic_link_provider}
                             </Button>
-                        )}
+                        </div>
 
-                        {emailPassword && isMagicLink && (
+                        <div
+                            className={cn((view != "login" || !emailPassword || !isMagicLink) ? hideElementClass : "mt-4",
+                                !disableAnimation && transitionClass,
+                            )}
+                        >
                             <Button
                                 type="button"
                                 variant="secondary"
                                 className="gap-2 w-full"
                                 onClick={() => setIsMagicLink(false)}
+                                disabled={view != "login" || !emailPassword || !isMagicLink}
                             >
                                 <LockIcon className="w-4 h-4" />
                                 {localization.provider_prefix}
                                 {" "}
                                 {localization.password_provider}
                             </Button>
-                        )}
+                        </div>
                     </div>
                 </form>
             </CardContent>
@@ -279,19 +331,26 @@ export function AuthCard({
                             localization.login_footer
                         )}
 
-                        {" "}
-
-                        <LinkComponent
-                            href={view == "signup" ?
-                                "/auth/login"
-                                : "/auth/signup"
-                            }
-                            className="underline"
+                        <Button
+                            asChild={!disableRouting}
+                            variant="link"
+                            size="sm"
+                            className="text-xs px-1 h-fit underline"
+                            onClick={() => setView(view == "signup" ? "login" : "signup")}
                         >
-                            <span className="dark:!text-warning text-foreground">
-                                {view == "signup" ? localization.login : localization.signup}
-                            </span>
-                        </LinkComponent>
+                            {disableRouting ? (
+                                view == "signup" ? localization.login : localization.signup
+                            ) : (
+                                <LinkComponent
+                                    href={view == "signup" ?
+                                        "/auth/login"
+                                        : "/auth/signup"
+                                    }
+                                >
+                                    {view == "signup" ? localization.login : localization.signup}
+                                </LinkComponent>
+                            )}
+                        </Button>
                     </p>
                 </div>
             </CardFooter>

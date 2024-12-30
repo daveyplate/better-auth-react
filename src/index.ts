@@ -1,1 +1,1 @@
-export * from "./auth-card"
+export * from "./components/auth-card"
